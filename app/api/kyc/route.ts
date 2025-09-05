@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findByClerkId(userId);
+    const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -91,17 +91,25 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findByClerkId(userId);
+    const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Check if user can attempt KYC
-    if (!user.canAttemptKYC()) {
-      return NextResponse.json(
-        { error: 'Maximum KYC attempts exceeded. Please try after 24 hours.' },
-        { status: 429 }
-      );
+    const maxAttempts = 3;
+    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
+    const kycAttempts = (user as any).activity?.kycAttempts || 0;
+    
+    if (kycAttempts >= maxAttempts) {
+      const lastAttempt = user.updatedAt;
+      const timeSinceLastAttempt = Date.now() - lastAttempt.getTime();
+      if (timeSinceLastAttempt <= cooldownPeriod) {
+        return NextResponse.json(
+          { error: 'Maximum KYC attempts exceeded. Please try after 24 hours.' },
+          { status: 429 }
+        );
+      }
     }
 
     // Create new KYC application
@@ -129,7 +137,10 @@ export async function POST(request: NextRequest) {
     await application.save();
 
     // Update user's KYC attempt count
-    user.activity.kycAttempts += 1;
+    if (!user.activity) {
+      (user as any).activity = { kycAttempts: 0, lastLogin: new Date() };
+    }
+    (user as any).activity.kycAttempts += 1;
     await user.save();
 
     // Invalidate cache
@@ -145,7 +156,7 @@ export async function POST(request: NextRequest) {
         digilockerAuth = await digilockerService.initiateKYC(userId, redirectUri);
         
         // Update application with DigiLocker request ID
-        application.metadata = {
+        (application as any).metadata = {
           digilockerRequestId: digilockerAuth.requestId,
           digilockerState: digilockerAuth.state
         };
@@ -198,7 +209,7 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findByClerkId(userId);
+    const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -238,29 +249,32 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update progress based on completed steps
-    let newPercentage = application.progress.percentage;
-    let currentStep = application.progress.currentStep;
+    if (!application.progress) {
+      (application as any).progress = { percentage: 0, currentStep: 'PERSONAL_INFO', stepsCompleted: [] };
+    }
+    let newPercentage = (application as any).progress.percentage;
+    let currentStep = (application as any).progress.currentStep;
 
-    if (personalInfo && !application.progress.stepsCompleted.includes('PERSONAL_INFO')) {
-      application.progress.stepsCompleted.push('PERSONAL_INFO');
+    if (personalInfo && !(application as any).progress.stepsCompleted.includes('PERSONAL_INFO')) {
+      (application as any).progress.stepsCompleted.push('PERSONAL_INFO');
       newPercentage = Math.max(newPercentage, 25);
       currentStep = 'DOCUMENT_UPLOAD';
     }
 
-    if (documents && documents.length > 0 && !application.progress.stepsCompleted.includes('DOCUMENT_UPLOAD')) {
-      application.progress.stepsCompleted.push('DOCUMENT_UPLOAD');
+    if (documents && documents.length > 0 && !(application as any).progress.stepsCompleted.includes('DOCUMENT_UPLOAD')) {
+      (application as any).progress.stepsCompleted.push('DOCUMENT_UPLOAD');
       newPercentage = Math.max(newPercentage, 50);
       currentStep = 'FACE_VERIFICATION';
     }
 
-    if (faceVerifications && faceVerifications.length > 0 && !application.progress.stepsCompleted.includes('FACE_VERIFICATION')) {
-      application.progress.stepsCompleted.push('FACE_VERIFICATION');
+    if (faceVerifications && faceVerifications.length > 0 && !(application as any).progress.stepsCompleted.includes('FACE_VERIFICATION')) {
+      (application as any).progress.stepsCompleted.push('FACE_VERIFICATION');
       newPercentage = Math.max(newPercentage, 75);
       currentStep = 'REVIEW';
     }
 
-    application.progress.percentage = newPercentage;
-    application.progress.currentStep = currentStep;
+    (application as any).progress.percentage = newPercentage;
+    (application as any).progress.currentStep = currentStep;
 
     await application.save();
 
@@ -308,7 +322,7 @@ export async function DELETE(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findByClerkId(userId);
+    const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -332,17 +346,17 @@ export async function DELETE(request: NextRequest) {
 
     // Update application status
     application.status = 'CANCELLED';
-    application.progress.percentage = 0;
-    application.progress.currentStep = 'CANCELLED';
+    (application as any).progress.percentage = 0;
+    (application as any).progress.currentStep = 'CANCELLED';
     await application.save();
 
     // Clean up DigiLocker consent if applicable
-    if (application.method === 'DIGILOCKER' && application.metadata?.digilockerUserToken) {
+    if (application.method === 'DIGILOCKER' && (application as any).metadata?.digilockerUserToken) {
       try {
         const digilockerService = new DigiLockerService();
         await digilockerService.cleanup(
-          application.metadata.digilockerUserToken,
-          application.metadata.digilockerConsentId
+          (application as any).metadata.digilockerUserToken,
+          (application as any).metadata.digilockerConsentId
         );
       } catch (error) {
         console.warn('DigiLocker cleanup failed:', error);

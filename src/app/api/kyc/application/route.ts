@@ -32,11 +32,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user can attempt KYC
-    if (!user.canAttemptKYC()) {
-      return NextResponse.json(
-        { error: 'Maximum KYC attempts reached. Please wait 24 hours before trying again.' },
-        { status: 429 }
-      );
+    const maxAttempts = 3;
+    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
+    const kycAttempts = (user as any).activity?.kycAttempts || 0;
+    
+    if (kycAttempts >= maxAttempts) {
+      const lastAttempt = user.updatedAt;
+      const timeSinceLastAttempt = Date.now() - lastAttempt.getTime();
+      if (timeSinceLastAttempt <= cooldownPeriod) {
+        return NextResponse.json(
+          { error: 'Maximum KYC attempts reached. Please wait 24 hours before trying again.' },
+          { status: 429 }
+        );
+      }
     }
 
     // Parse request body
@@ -69,8 +77,11 @@ export async function POST(request: NextRequest) {
     await kycApplication.save();
 
     // Update user's KYC attempts
-    user.activity.kycAttempts += 1;
-    user.kycApplications.push(kycApplication._id);
+    if (!user.activity) {
+      (user as any).activity = { kycAttempts: 0, lastLogin: new Date() };
+    }
+    (user as any).activity.kycAttempts += 1;
+    (user as any).kycApplications.push(kycApplication._id);
     await user.save();
 
     return NextResponse.json({
@@ -241,7 +252,7 @@ export async function PUT(request: NextRequest) {
     const allowedUpdates = ['personalInfo', 'progress'];
     for (const field of allowedUpdates) {
       if (updates[field]) {
-        application[field] = { ...application[field], ...updates[field] };
+        (application as any)[field] = { ...(application as any)[field], ...updates[field] };
       }
     }
 

@@ -69,7 +69,7 @@ export default function FaceVerificationPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [currentLivenessIndex, setCurrentLivenessIndex] = useState(0);
-  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState<boolean | string>(false);
   const [modelLoadingProgress, setModelLoadingProgress] = useState(0);
   const [debugInfo, setDebugInfo] = useState({
     detectionCount: 0,
@@ -130,7 +130,7 @@ export default function FaceVerificationPage() {
     } catch (error) {
       console.error('Error loading face-api.js models:', error);
       // Fall back to basic detection without AI models
-      setModelsLoaded('fallback' as any);
+      setModelsLoaded('fallback');
       setModelLoadingProgress(100);
       setErrorMessage('Using basic face detection. For enhanced accuracy, please refresh the page.');
     }
@@ -285,7 +285,8 @@ export default function FaceVerificationPage() {
             
           } catch (faceApiError) {
             console.error('❌ Face-api.js detection failed:', faceApiError);
-            setDebugInfo(prev => ({ ...prev, lastError: `Face-API error: ${faceApiError.message}` }));
+            const errorMessage = faceApiError instanceof Error ? faceApiError.message : String(faceApiError);
+            setDebugInfo(prev => ({ ...prev, lastError: `Face-API error: ${errorMessage}` }));
             // Fall through to fallback detection
           }
         }
@@ -299,7 +300,8 @@ export default function FaceVerificationPage() {
             console.log('✅ Fallback detection result:', detections.length, 'faces found');
           } catch (fallbackError) {
             console.error('❌ Fallback detection failed:', fallbackError);
-            setDebugInfo(prev => ({ ...prev, lastError: `Fallback error: ${fallbackError.message}` }));
+            const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+            setDebugInfo(prev => ({ ...prev, lastError: `Fallback error: ${errorMessage}` }));
           }
         }
 
@@ -308,7 +310,8 @@ export default function FaceVerificationPage() {
 
         if (detections.length > 0) {
           const detection = detections[0];
-          let confidence, box;
+          let confidence: number = 0;
+          let box: any = null;
           
           if (detection.detection) {
             // face-api.js detection

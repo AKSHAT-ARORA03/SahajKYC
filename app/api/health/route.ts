@@ -103,7 +103,7 @@ async function checkRedis(): Promise<HealthCheckResult> {
 }
 
 async function checkExternalServices(): Promise<HealthCheckResult[]> {
-  const services = [];
+  const services: HealthCheckResult[] = [];
 
   // Check Setu DigiLocker API
   if (process.env.SETU_CLIENT_ID && process.env.SETU_CLIENT_SECRET) {

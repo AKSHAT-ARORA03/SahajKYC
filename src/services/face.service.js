@@ -603,4 +603,6 @@ export class FaceRecognitionService {
   }
 }
 
+// Export as both default and named export for compatibility
 export default FaceRecognitionService;
+export { FaceRecognitionService as FaceService };

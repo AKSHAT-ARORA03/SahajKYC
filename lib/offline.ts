@@ -56,10 +56,14 @@ class OfflineManager {
     });
   }
 
-  private getConnectionType(): string | undefined {
+  private getConnectionType(): 'slow-2g' | '2g' | '3g' | '4g' | 'wifi' | undefined {
     if ('connection' in navigator) {
       const connection = (navigator as any).connection;
-      return connection?.effectiveType;
+      const effectiveType = connection?.effectiveType;
+      // Validate the type and return only valid values
+      if (effectiveType && ['slow-2g', '2g', '3g', '4g', 'wifi'].includes(effectiveType)) {
+        return effectiveType as 'slow-2g' | '2g' | '3g' | '4g' | 'wifi';
+      }
     }
     return undefined;
   }
