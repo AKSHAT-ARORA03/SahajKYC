@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="384" height="384" viewBox="0 0 384 384" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="192" cy="192" r="192" fill="url(#gradient)"/>
+  
+  <!-- KYC Icon - Shield with checkmark -->
+  <g transform="translate(96, 76.80000000000001)">
+    <!-- Shield background -->
+    <path d="M96 38.400000000000006 L153.60000000000002 57.599999999999994 L153.60000000000002 172.8 Q153.60000000000002 211.20000000000002 96 230.39999999999998 Q38.400000000000006 211.20000000000002 38.400000000000006 172.8 L38.400000000000006 57.599999999999994 Z" 
+          fill="white" opacity="0.9"/>
+    
+    <!-- Checkmark -->
+    <path d="M69.12 134.39999999999998 L88.32000000000001 153.60000000000002 L122.88 115.19999999999999" 
+          stroke="#1E40AF" stroke-width="7.68" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <!-- KYC Text -->
+  <text x="192" y="307.20000000000005" text-anchor="middle" 
+        font-family="Arial, sans-serif" font-size="30.72" font-weight="bold" fill="white">
+    KYC
+  </text>
+</svg>
