@@ -107,9 +107,6 @@
     "zod": "^3.23.8",
     "zustand": "^5.0.8"
   },
-  "optionalDependencies": {
-    "canvas": "^2.11.2"
-  },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/crypto-js": "^4.2.2",
