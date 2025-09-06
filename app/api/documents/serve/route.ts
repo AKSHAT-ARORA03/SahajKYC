@@ -3,6 +3,9 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
+// Mark this route as dynamic
+export const dynamic = 'force-dynamic';
+
 // Serve uploaded documents securely
 export async function GET(request: NextRequest) {
   try {
