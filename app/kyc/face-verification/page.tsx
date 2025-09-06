@@ -6,14 +6,6 @@ import { Camera, Shield, CheckCircle, AlertCircle, Eye, RotateCcw, Loader2, X } 
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Dynamic import for face-api.js to avoid SSR issues
-let faceapi: any = null;
-if (typeof window !== 'undefined') {
-  import('face-api.js').then((module) => {
-    faceapi = module;
-  }).catch((error) => {
-    console.warn('face-api.js failed to load, using fallback detection:', error);
-  });
-}
 
 type VerificationState = 
   | 'INITIALIZING'
@@ -71,6 +63,7 @@ export default function FaceVerificationPage() {
   const [currentLivenessIndex, setCurrentLivenessIndex] = useState(0);
   const [modelsLoaded, setModelsLoaded] = useState<boolean | string>(false);
   const [modelLoadingProgress, setModelLoadingProgress] = useState(0);
+  const [faceapi, setFaceapi] = useState<any>(null);
   const [debugInfo, setDebugInfo] = useState({
     detectionCount: 0,
     lastConfidence: 0,
@@ -90,32 +83,32 @@ export default function FaceVerificationPage() {
     try {
       setModelLoadingProgress(10);
       
-      // Wait for face-api.js to load
-      if (!faceapi) {
-        let attempts = 0;
-        while (!faceapi && attempts < 50) { // Wait up to 5 seconds
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
+      // Load face-api.js dynamically
+      let faceApiModule = faceapi;
+      if (!faceApiModule) {
+        console.log('Loading face-api.js...');
+        faceApiModule = await import('face-api.js' as any);
+        setFaceapi(faceApiModule);
+        console.log('face-api.js loaded successfully');
       }
       
-      if (!faceapi) {
+      if (!faceApiModule) {
         throw new Error('face-api.js failed to load');
       }
       
       const MODEL_URL = '/models';
       
       // Load models in sequence with progress updates
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await faceApiModule.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
       setModelLoadingProgress(40);
       
-      await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+      await faceApiModule.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
       setModelLoadingProgress(70);
       
-      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      await faceApiModule.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
       setModelLoadingProgress(90);
       
-      await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+      await faceApiModule.nets.faceExpressionNet.loadFromUri(MODEL_URL);
       setModelLoadingProgress(100);
       
       setModelsLoaded(true);
@@ -228,6 +221,7 @@ export default function FaceVerificationPage() {
     console.log('📹 Video ready:', !!videoRef.current);
     console.log('🤖 Models loaded:', modelsLoaded);
     console.log('🔧 Face API available:', !!faceapi);
+    console.log('📦 Face API object keys:', faceapi ? Object.keys(faceapi).slice(0, 5) : 'null');
     
     if (!videoRef.current) {
       const errorMsg = 'Video element not available';
