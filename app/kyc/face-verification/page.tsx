@@ -95,6 +95,9 @@ export default function FaceVerificationPage() {
         throw new Error('face-api.js failed to load');
       }
       
+      // Set the module first so it's available
+      setFaceapi(faceApiModule);
+      
       const MODEL_URL = '/models';
       
       // Load models in sequence with progress updates
@@ -110,22 +113,27 @@ export default function FaceVerificationPage() {
       await faceApiModule.nets.faceExpressionNet.loadFromUri(MODEL_URL);
       setModelLoadingProgress(100);
       
-      // Set both state and ensure we have the module ready
-      setFaceapi(faceApiModule);
-      setModelsLoaded(true);
+      // CRITICAL: Set models loaded to true AFTER all models are loaded
       console.log('All face-api.js models loaded successfully');
       
-      // Update debug info
+      // Update debug info first
       setDebugInfo(prev => ({
         ...prev,
         faceApiReady: true
       }));
+      
+      // Set models loaded to true (this will trigger the useEffect for detection)
+      setTimeout(() => {
+        console.log('🎉 Setting modelsLoaded to true');
+        setModelsLoaded(true);
+      }, 100); // Small delay to ensure all states are ready
       
     } catch (error) {
       console.error('Error loading face-api.js models:', error);
       // Fall back to basic detection without AI models
       setModelsLoaded('fallback');
       setModelLoadingProgress(100);
+      setFaceapi(null); // Clear faceapi on error
       setErrorMessage('Using basic face detection. For enhanced accuracy, please refresh the page.');
     }
   };
@@ -147,9 +155,22 @@ export default function FaceVerificationPage() {
   useEffect(() => {
     if (modelsLoaded === true && faceapi && stream && videoRef.current && verificationState === 'DETECTING_FACE') {
       console.log('🎯 All conditions met for face detection - starting...');
+      console.log('✅ Models loaded:', modelsLoaded);
+      console.log('✅ Face API available:', !!faceapi);
+      console.log('✅ Stream available:', !!stream);
+      console.log('✅ Video element available:', !!videoRef.current);
+      console.log('✅ State correct:', verificationState === 'DETECTING_FACE');
       startFaceDetection();
+    } else {
+      console.log('⏳ Waiting for conditions to be met:', {
+        modelsLoaded,
+        faceapi: !!faceapi,
+        stream: !!stream,
+        video: !!videoRef.current,
+        state: verificationState
+      });
     }
-  }, [modelsLoaded, faceapi, stream]);
+  }, [modelsLoaded, faceapi, stream, verificationState]);
 
   const initializeFaceVerification = async () => {
     try {
@@ -198,11 +219,12 @@ export default function FaceVerificationPage() {
       // Simulate model loading delay for better UX
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      console.log('📋 Setting verification state to DETECTING_FACE');
       setVerificationState('DETECTING_FACE');
       setCurrentStep(2);
       
-      // Start face detection simulation
-      startFaceDetection();
+      // Don't call startFaceDetection directly here - let the useEffect handle it
+      console.log('📋 State updated, useEffect should trigger face detection when models are ready');
       
     } catch (error: any) {
       console.error('Camera initialization failed:', error);
