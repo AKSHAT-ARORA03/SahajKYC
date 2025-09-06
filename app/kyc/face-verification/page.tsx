@@ -88,7 +88,6 @@ export default function FaceVerificationPage() {
       if (!faceApiModule) {
         console.log('Loading face-api.js...');
         faceApiModule = await import('face-api.js' as any);
-        setFaceapi(faceApiModule);
         console.log('face-api.js loaded successfully');
       }
       
@@ -111,6 +110,8 @@ export default function FaceVerificationPage() {
       await faceApiModule.nets.faceExpressionNet.loadFromUri(MODEL_URL);
       setModelLoadingProgress(100);
       
+      // Set both state and ensure we have the module ready
+      setFaceapi(faceApiModule);
       setModelsLoaded(true);
       console.log('All face-api.js models loaded successfully');
       
@@ -141,6 +142,14 @@ export default function FaceVerificationPage() {
       }
     };
   }, []);
+
+  // Start face detection when models are loaded and faceapi is ready
+  useEffect(() => {
+    if (modelsLoaded === true && faceapi && stream && videoRef.current && verificationState === 'DETECTING_FACE') {
+      console.log('🎯 All conditions met for face detection - starting...');
+      startFaceDetection();
+    }
+  }, [modelsLoaded, faceapi, stream]);
 
   const initializeFaceVerification = async () => {
     try {
@@ -263,6 +272,7 @@ export default function FaceVerificationPage() {
         console.log('📐 Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
         
         // Try AI-based detection first
+        console.log('🔍 Detection check - modelsLoaded:', modelsLoaded, 'faceapi available:', !!faceapi);
         if (modelsLoaded === true && faceapi) {
           try {
             console.log('🤖 Attempting face-api.js detection...');
