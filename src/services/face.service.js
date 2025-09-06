@@ -1,10 +1,18 @@
 import * as faceapi from 'face-api.js';
-import { Canvas, Image } from 'canvas';
 import { loadFaceModels, areModelsLoaded } from '../lib/face-models.js';
 import FaceVerification from '../models/FaceVerification.js';
 
-// Configure face-api.js for Node.js
-faceapi.env.monkeyPatch({ Canvas, Image });
+// Optional canvas import - only available in development
+let Canvas, Image;
+try {
+  const canvasModule = await import('canvas');
+  Canvas = canvasModule.Canvas;
+  Image = canvasModule.Image;
+  // Configure face-api.js for Node.js only if canvas is available
+  faceapi.env.monkeyPatch({ Canvas, Image });
+} catch (error) {
+  console.log('Canvas not available - face recognition will use client-side implementation');
+}
 
 export class FaceRecognitionService {
   constructor() {
