@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
 
 // Document upload API route with comprehensive error handling
 export async function POST(request: NextRequest) {
   console.log('📄 Document upload API called');
+  console.log('🔍 Request details:', {
+    method: request.method,
+    headers: Object.fromEntries(request.headers.entries()),
+    url: request.url
+  });
   
   try {
     // Parse FormData from request
+    console.log('📋 Parsing form data...');
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const documentType = formData.get('documentType') as string;
@@ -103,40 +106,35 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create uploads directory structure
-    const uploadsDir = join(process.cwd(), 'uploads');
-    const userDir = join(uploadsDir, 'documents', userId);
+    // Process file in memory (serverless-friendly approach)
+    console.log('� Processing file in memory for serverless environment');
     
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-    
-    if (!existsSync(userDir)) {
-      await mkdir(userDir, { recursive: true });
-    }
-
-    // Generate unique file name
+    // Generate unique file ID and metadata
     const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop();
+    const fileExtension = file.name.split('.').pop() || 'unknown';
     const fileName = `${documentType}_${timestamp}.${fileExtension}`;
-    const filePath = join(userDir, fileName);
-
-    console.log('📁 Saving file to:', filePath);
-
-    // Convert File to Buffer and save
-    const bytes = await file.arrayBuffer();
-    const buffer = new Uint8Array(bytes);
-    await writeFile(filePath, buffer);
-
-    console.log('✅ File saved successfully');
-
-    // Generate file ID and metadata
     const fileId = `doc_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Mock extracted data (in production, use OCR services)
+    // Convert file to base64 for temporary processing (in real app, upload to cloud storage)
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64Data = buffer.toString('base64');
+    
+    console.log('📊 File processed:', {
+      fileId,
+      originalName: file.name,
+      processedName: fileName,
+      size: file.size,
+      type: file.type
+    });
+    
+    // Mock extracted data (in production, use OCR services like Tesseract.js or Google Vision)
     const extractedData = generateMockExtractedData(documentType, file.name);
+    
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Response data
+    // Response data (in production, save to database and cloud storage)
     const responseData = {
       success: true,
       data: {
@@ -148,13 +146,15 @@ export async function POST(request: NextRequest) {
         documentType,
         userId,
         uploadedAt: new Date().toISOString(),
-        status: 'uploaded',
-        filePath: `/uploads/documents/${userId}/${fileName}`,
+        status: 'processed',
+        // Note: In serverless environment, use cloud storage URLs instead of local paths
+        tempData: `data:${file.type};base64,${base64Data.substring(0, 100)}...`, // Truncated for demo
         extractedData,
         processing: {
           status: 'completed',
           confidence: 0.95,
-          processingTime: `${Math.random() * 2 + 1}s`
+          processingTime: `${Math.random() * 2 + 1}s`,
+          method: 'serverless_processing'
         }
       }
     };
@@ -165,12 +165,28 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('💥 Document upload error:', error);
+    console.error('💥 Error stack:', error.stack);
+    
+    // Provide more specific error information
+    let errorMessage = 'Internal server error during file upload';
+    let errorCode = 'INTERNAL_ERROR';
+    
+    if (error.message?.includes('arrayBuffer')) {
+      errorMessage = 'Failed to process file data';
+      errorCode = 'FILE_PROCESSING_ERROR';
+    } else if (error.message?.includes('FormData')) {
+      errorMessage = 'Invalid form data format';
+      errorCode = 'FORM_DATA_ERROR';
+    }
     
     return NextResponse.json({
       success: false,
-      error: 'Internal server error during file upload',
-      code: 'INTERNAL_ERROR',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later',
+      error: errorMessage,
+      code: errorCode,
+      details: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        stack: error.stack?.split('\n').slice(0, 3)
+      } : 'Please try again later',
       timestamp: new Date().toISOString()
     }, { status: 500 });
   }
